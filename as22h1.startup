@@ -1,0 +1,6 @@
+ip addr add 2.22.1.2/24 broadcast 2.22.1.255 dev eth0
+ip route add default via 2.22.1.1
+systemctl start rsyslog
+systemctl start named
+systemctl start apache2
+

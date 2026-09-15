@@ -1,0 +1,48 @@
+PROJECT CONFIGURATION
+------------------------
+You must do the following before you launch the project on Kathara:
+
+1. Replace 11 in the ASN file to your own AS number, e.g., 100 if your are AS100.
+2. Edit device and link configuration of your AS at the end of the lab.conf file.
+3. Change BGP peering of AS1 and AS21 from AS11 to your ASN in the files below:
+   - as1r1/etc/frr/frr.conf
+   - as21r1/etc/frr/frr.conf
+4. Add configuration folders and startup scripts for your devices
+   - For example, r1 should be: asXr1 and asXr1.startup where X is your ASN
+   - Similarly, asXs1, asXc1 for s1 and c1, respectively.
+   - You must add folder and startup script for all device including clients
+     even though there is no extra config (you simply have an empty folder)
+
+START KATHARA
+------------------------
+Kathara launches one terminal per device when it starts.
+With our project configuration, you will see many terminals, which can be overwhelming.
+To avoid this, you may start kathara without any terminal and connect to each device manually. 
+In this way, you don't have to deal with terminals belonging to other ASes.
+To start kathara without terminal, run:
+  kathara lstart --noterminals
+
+INTERNET SERVICE STARTUP SCRIPTS
+------------------------
+When you add Internet services to the startup configuration,
+you must start the services via the systemd system and service manager.
+For example, you can run the DNS service with the command:
+  systemctl start named
+You may get penalty if you use other methods to run the services.
+For DHCP client, you must use the /sbin/dhclient command, as shown below:
+  /sbin/dhclient <INTERFACE>
+
+HOST IP ADDRESS IN STARTUP SCRIPTS
+------------------------
+You must use the ip command to configure IP address and default route
+in the startup script.
+ifconfig and route commands are deprecated and considered as wrong.
+You may also be penalized if you use them.
+
+TROUBLESHOOTING
+------------------------
+You should start the rsyslog service on each device with the command:
+  systemctl start rsyslog
+It is very important to have this command before other services in the startup script.
+In this way, the looging service will start first. Then, other services can directly write 
+messages to the /var/log/syslog file and you can troubleshoot by looking at the syslog file.
