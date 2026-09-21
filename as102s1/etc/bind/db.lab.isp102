@@ -1,23 +1,16 @@
 $TTL   60000
-@               IN      SOA     ns.isp12.lab. root.isp12.lab. (
-                        2006031201 ; serial
-                        28800 ; refresh
-                        14400 ; retry
-                        3600000 ; expire
-                        0 ; negative cache ttl
+@           IN      SOA     ns.isp102.lab. root.isp102.lab. (
+                        2026092101 ; serial
+                        28800      ; refresh
+                        14400      ; retry
+                        3600000    ; expire
+                        0          ; negative cache ttl
                         )
-@                   IN      NS      ns.isp12.lab.
-ns		    IN      A       1.12.1.2
-www		    IN	    CNAME   ns
-
-gw		    IN      A       1.12.1.1
-
-
-gw-client	    IN      A       1.12.2.1
-
-client1	    	    IN      A       1.12.2.11
-client2	    	    IN      A       1.12.2.12
-client3	    	    IN      A       1.12.2.13
-client4	    	    IN      A       1.12.2.14
-client5	    	    IN      A       1.12.2.15
-
+@           IN      NS      ns.isp102.lab.
+ns          IN      A       1.102.1.2
+www         IN      A       1.102.1.3
+dhcpd       IN      A       1.102.1.4
+r1          IN      A       1.0.0.5
+r4          IN      A       1.102.2.1
+c1          IN      A       1.102.2.10
+c2          IN      A       1.102.2.11
