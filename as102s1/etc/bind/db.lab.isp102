@@ -33,6 +33,8 @@ r4eth1          IN      A       1.102.3.4
 r4eth2          IN      A       1.102.3.9
 r4dummy0        IN      A       1.102.4.4
 
-
 c1          IN      A       1.102.2.10
 c2          IN      A       1.102.2.11
+
+dnsroot         IN      A       1.0.1.2
+dnstld          IN      A       2.0.1.2
