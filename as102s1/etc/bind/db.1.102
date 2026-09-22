@@ -1,5 +1,5 @@
 $TTL	604800
-@	IN	SOA	ns.isp102.lab root.isp102.lab. (
+@	IN	SOA	ns.isp102.lab. root.isp102.lab. (
 			      1		; Serial
 			 604800		; Refresh
 			  86400		; Retry
