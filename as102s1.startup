@@ -1,4 +1,4 @@
-ip addr add 1.102.1.2/24 dev eth0
+ip addr add 1.102.1.2/24 broadcast 1.102.1.255 dev eth0
 ip route add default via 1.102.1.1
 systemctl start rsyslog
 systemctl start named
