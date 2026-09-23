@@ -1,1 +1,3 @@
+systemctl start ryslog
 systemctl start frr
+systemctl start isc-dhcp-relay
