@@ -1,0 +1,2 @@
+#https://ubuntu.com/server/docs/how-to/networking/install-isc-dhcp-server/
+INTERFACESv4="eth0"
