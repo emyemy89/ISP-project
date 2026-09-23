@@ -1,1 +1,2 @@
+systemctl start rsyslog
 systemctl start frr
