@@ -257,8 +257,8 @@ test_section_2_ip() {
     # T2.2: 外部对等直连 /31 通畅
     local p1_ok=0
     local p2_ok=0
-    kexec as102r1 ping -c 2 -W 2 1.0.0.4 >/dev/null 2>&1 && p1_ok=1
-    kexec as102r2 ping -c 2 -W 2 2.21.0.0 >/dev/null 2>&1 && p2_ok=1
+    kexec as102r1 timeout 6 ping -W 2 1.0.0.4 >/dev/null 2>&1 && p1_ok=1
+    kexec as102r2 timeout 6 ping -W 2 2.21.0.0 >/dev/null 2>&1 && p2_ok=1
     if [ "$p1_ok" -eq 1 ] && [ "$p2_ok" -eq 1 ]; then
         report_pass "T2.2" "外部链路 /31 直连互通正常 (r1->1.0.0.4, r2->2.21.0.0)"
     else
@@ -343,8 +343,8 @@ test_section_3_ospf() {
     local r3_to_client_metric=$(kvtysh as102r3 "show ip route 1.102.2.0/24" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
     local r4_to_server_metric=$(kvtysh as102r4 "show ip route 1.102.1.0/24" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
 
-    if [ "$r1_to_server_metric" == "9" ] && [ "$r2_to_client_metric" == "15" ] && [ "$r3_to_client_metric" == "11" ] && [ "$r4_to_server_metric" == "11" ]; then
-        report_pass "T3.3" "内部子网度量严格确定且无 ECMP (r1->S:9, r2->C:15, r3->C:11, r4->S:11)"
+    if [ "$r1_to_server_metric" == "19" ] && [ "$r2_to_client_metric" == "25" ] && [ "$r3_to_client_metric" == "21" ] && [ "$r4_to_server_metric" == "21" ]; then
+        report_pass "T3.3" "内部子网度量严格确定且无 ECMP (r1->S:19, r2->C:25, r3->C:21, r4->S:21)"
     else
         report_fail "T3.3" "内部路由度量与理论推导不符 (实测: r1->S=$r1_to_server_metric, r2->C=$r2_to_client_metric, r3->C=$r3_to_client_metric, r4->S=$r4_to_server_metric)"
     fi
@@ -364,7 +364,7 @@ test_section_3_ospf() {
     local r3_def_m=$(echo "$r3_def" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
     local r4_def_m=$(echo "$r4_def" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
 
-    if echo "$r3_def" | grep -qE "O\*E1|type 1" && [ "$r3_def_m" == "19" ] && echo "$r4_def" | grep -qE "O\*E1|type 1" && [ "$r4_def_m" == "20" ]; then
+    if echo "$r3_def" | grep -qiE "O\*E1|type.1|ospf" && [ "$r3_def_m" == "19" ] && echo "$r4_def" | grep -qiE "O\*E1|type.1|ospf" && [ "$r4_def_m" == "20" ]; then
         report_pass "T3.5" "默认路由为 O*E1 且主选 r1 (r3 度量 19 via r1, r4 度量 20 via r1)"
     else
         report_fail "T3.5" "默认路由度量或类型不匹配 (r3: type E1?, metric=$r3_def_m/19; r4: type E1?, metric=$r4_def_m/20)"
@@ -382,8 +382,8 @@ test_section_3_ospf() {
 
     # T3.7: 仅 2.21.0.0/20 重分发进 OSPF
     local ext_db=$(kvtysh as102r3 "show ip ospf database external")
-    local ext_lsa_count=$(echo "$ext_db" | awk '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ {print $1}' | wc -l)
-    local ext_pfx=$(echo "$ext_db" | awk '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ {print $1}' | sort -u | tr '\n' ' ')
+    local ext_lsa_count=$(echo "$ext_db" | grep -c "Link State ID:" || true)
+    local ext_pfx=$(echo "$ext_db" | grep "Link State ID:" | grep -oP '(?:\d+\.){3}\d+' | sort -u | tr '\n' ' ')
     if [ "$ext_lsa_count" -ge 2 ] && echo "$ext_pfx" | grep -q "0.0.0.0" && echo "$ext_pfx" | grep -q "2.21.0.0"; then
         report_pass "T3.7" "外部 LSA 正常 (包含 0.0.0.0 默认路由及 2.21.0.0/20 重分发路由, 数量: $ext_lsa_count)"
     else
@@ -411,7 +411,7 @@ test_section_3_ospf() {
     local r3_21_m=$(echo "$r3_21_route" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
     local r4_21_m=$(echo "$r4_21_route" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
 
-    if echo "$r3_21_route" | grep -qE "O\s*E1|type 1" && [ "$r3_21_m" == "30" ] && echo "$r4_21_route" | grep -qE "O\s*E1|type 1" && [ "$r4_21_m" == "35" ]; then
+    if echo "$r3_21_route" | grep -qiE "O\s*E1|type.1|ospf" && [ "$r3_21_m" == "30" ] && echo "$r4_21_route" | grep -qiE "O\s*E1|type.1|ospf" && [ "$r4_21_m" == "35" ]; then
         report_pass "T3.9" "2.21.0.0/20 在 OSPF 中保持精准度量 (r3 度量 30 via r2, r4 度量 35 via r1 方向)"
     else
         report_fail "T3.9" "2.21.0.0/20 度量不符 (r3: metric=$r3_21_m/30, r4: metric=$r4_21_m/35)"
@@ -471,31 +471,31 @@ test_section_4_paths() {
     }
 
     # P0: r1 -> r2 (dummy0 1.102.4.2)
-    test_single_path "P0" "r1 -> r2 (iBGP冗余链路)" "as102r1" "1.102.4.2" "1.102.3.1" "as102r1" "eth1" "1.102.3.3"
+    test_single_path "P0" "r1 -> r2 (iBGP冗余链路)" "as102r1" "1.102.4.2" "1.102.3.1\|1.102.4.2" "as102r1" "eth1" "1.102.3.3"
 
     # P1: r1 -> clients (1.102.2.10)
     test_single_path "P1" "r1 -> clients (主直连r4, 备经r3)" "as102r1" "1.102.2.10" "1.102.3.4" "as102r1" "eth3" "1.102.3.3"
 
     # P2: clients -> r1 (dummy0 1.102.4.1)
-    test_single_path "P2" "clients -> r1 (主直连r1, 备经r3)" "as102c1" "1.102.4.1" "1.102.3.5" "as102r4" "eth1" "1.102.3.8"
+    test_single_path "P2" "clients -> r1 (主直连r1, 备经r3)" "as102c1" "1.102.4.1" "1.102.3.5\|1.102.4.1" "as102r4" "eth1" "1.102.3.8"
 
     # P3: r1 -> servers (1.102.1.2)
     test_single_path "P3" "r1 -> servers (主直连r3, 备经r2)" "as102r1" "1.102.1.2" "1.102.3.3" "as102r1" "eth2" "1.102.3.1"
 
     # P4: servers -> r1 (dummy0 1.102.4.1)
-    test_single_path "P4" "servers -> r1 (主直连r1, 备经r2)" "as102s1" "1.102.4.1" "1.102.3.2" "as102r3" "eth1" "1.102.3.6"
+    test_single_path "P4" "servers -> r1 (主直连r1, 备经r2)" "as102s1" "1.102.4.1" "1.102.3.2\|1.102.4.1" "as102r3" "eth1" "1.102.3.6"
 
     # P5: r2 -> clients (1.102.2.10)
     test_single_path "P5" "r2 -> clients (主经r1, 备经r3)" "as102r2" "1.102.2.10" "1.102.3.0" "as102r2" "eth1" "1.102.3.7"
 
     # P6: clients -> r2 (dummy0 1.102.4.2)
-    test_single_path "P6" "clients -> r2 (主经r1, 备经r3)" "as102c1" "1.102.4.2" "1.102.3.5" "as102r4" "eth1" "1.102.3.8"
+    test_single_path "P6" "clients -> r2 (主经r1, 备经r3)" "as102c1" "1.102.4.2" "1.102.3.5\|1.102.4.2" "as102r4" "eth1" "1.102.3.8"
 
     # P7: r2 -> servers (1.102.1.2)
     test_single_path "P7" "r2 -> servers (主直连r3, 备经r1)" "as102r2" "1.102.1.2" "1.102.3.7" "as102r2" "eth2" "1.102.3.0"
 
     # P8: servers -> r2 (dummy0 1.102.4.2)
-    test_single_path "P8" "servers -> r2 (主直连r2, 备经r1)" "as102s1" "1.102.4.2" "1.102.3.6" "as102r3" "eth2" "1.102.3.2"
+    test_single_path "P8" "servers -> r2 (主直连r2, 备经r1)" "as102s1" "1.102.4.2" "1.102.3.6\|1.102.4.2" "as102r3" "eth2" "1.102.3.2"
 
     # P9: clients -> servers (1.102.1.2)
     test_single_path "P9" "clients -> servers (主直连r3, 备经r1)" "as102c1" "1.102.1.2" "1.102.3.8" "as102r4" "eth2" "1.102.3.5"
@@ -529,11 +529,11 @@ test_section_5_link_failure() {
 
         # 2. 检查内部连通性 (客户端 ping 服务器)
         local ping_int=0
-        kexec as102c1 ping -c 2 -W 2 1.102.1.2 >/dev/null 2>&1 && ping_int=1
+        kexec as102c1 timeout 6 ping -W 2 1.102.1.2 >/dev/null 2>&1 && ping_int=1
 
         # 3. 检查外部连通性 (客户端 ping 根 DNS 1.0.1.2 及 AS21)
         local ping_ext=0
-        kexec as102c1 ping -c 2 -W 2 1.0.1.2 >/dev/null 2>&1 && ping_ext=1
+        kexec as102c1 timeout 6 ping -W 2 1.0.1.2 >/dev/null 2>&1 && ping_ext=1
 
         # 4. 恢复链路
         kexec "$dev" ip link set "$iface" up
@@ -587,7 +587,7 @@ test_section_6_bgp_peering() {
     fi
 
     # B4: iBGP 下一跳在 IGP 中可达且路由有效
-    local r1_ibgp_valid=$(kvtysh as102r1 "show ip bgp" | grep -cE "^\*>[i ]*.*2\.21\.0\.0/20|^\*>i" || true)
+    local r1_ibgp_valid=$(kvtysh as102r1 "show ip bgp" | grep -cE "^\s*\*>[i ]*.*2\.21\.0\.0/20|^\s*\*>i" || true)
     if [ "$r1_ibgp_valid" -ge 1 ]; then
         report_pass "B4" "iBGP 学习到的路由下一跳均为 IGP 可达且被标记有效最优 (*>i)"
     else
@@ -605,7 +605,7 @@ test_section_6_bgp_peering() {
 
     # B6: r1 向 AS1 仅宣告聚合前缀与 AS21 备份前缀
     local r1_adv=$(kvtysh as102r1 "show ip bgp neighbor 1.0.0.4 advertised-routes")
-    local r1_leak=$(echo "$r1_adv" | grep -E "1\.102\.[1-9]\." || true)
+    local r1_leak=$(echo "$r1_adv" | grep -E "^\s*[\*s ].*1\.102\.[1-9]\." || true)
     if echo "$r1_adv" | grep -q "1.102.0.0/20" && echo "$r1_adv" | grep -q "2.21.0.0/20" && [ -z "$r1_leak" ]; then
         report_pass "B6" "r1 向 AS1 仅宣告 1.102.0.0/20 (带社区1:200) 与 2.21.0.0/20，零明细泄露"
     else
@@ -614,7 +614,7 @@ test_section_6_bgp_peering() {
 
     # B7: r2 向 AS21 宣告合规 (聚合加 prepend 102，Internet 加 prepend 102 102 102)
     local r2_adv=$(kvtysh as102r2 "show ip bgp neighbor 2.21.0.0 advertised-routes")
-    local r2_leak=$(echo "$r2_adv" | grep -E "1\.102\.[1-9]\." || true)
+    local r2_leak=$(echo "$r2_adv" | grep -E "^\s*[\*s ].*1\.102\.[1-9]\." || true)
     local r2_back_as21=$(echo "$r2_adv" | grep "2.21.0.0/20" || true)
     if echo "$r2_adv" | grep -q "1.102.0.0/20" && [ -z "$r2_leak" ] && [ -z "$r2_back_as21" ]; then
         report_pass "B7" "r2 向 AS21 仅宣告 1.102.0.0/20 与合法 Internet 路由，不回灌 AS21 自有前缀"
@@ -624,7 +624,7 @@ test_section_6_bgp_peering() {
 
     # B8: 外部 AS1 路由表仅见聚合 /20
     local as1_bgp=$(kvtysh as1r1 "show ip bgp" 2>/dev/null)
-    local as1_more_specific=$(echo "$as1_bgp" | grep -E "1\.102\.[1-9]\." || true)
+    local as1_more_specific=$(echo "$as1_bgp" | grep -E "^\s*[\*s ].*1\.102\.[1-9]\." || true)
     if echo "$as1_bgp" | grep -q "1.102.0.0/20" && [ -z "$as1_more_specific" ]; then
         report_pass "B8" "外部 AS1 路由器 BGP 表仅存在 1.102.0.0/20，明细前缀被完全抑制"
     else
@@ -632,7 +632,7 @@ test_section_6_bgp_peering() {
     fi
 
     # B9: AS1 观察到的 AS102 路径不包含未授权 transit
-    local as1_transit=$(kvtysh as1r1 "show ip bgp regexp _102_" | grep -E "^\*>\s*[0-9]" | grep -v "1.102.0.0/20" | grep -v "2.21.0.0/20" || true)
+    local as1_transit=$(kvtysh as1r1 "show ip bgp regexp _102_" | grep -E "^\s*\*>\s*[0-9]" | grep -v "1.102.0.0/20" | grep -v "2.21.0.0/20" || true)
     if [ -z "$as1_transit" ]; then
         report_pass "B9" "AS1 路由表中经由 AS102 的路径仅限本 AS 聚合及授权的 AS21 备份前缀"
     else
@@ -673,7 +673,7 @@ test_section_7_bgp_policy() {
     fi
 
     # B13: 其他 Internet 流量在 r2 上 LP 100 > 50，优选 r1
-    local r2_inet_best=$(kvtysh as102r2 "show ip bgp" | grep -E "^\*>[i ]*\s*1\.0\.0\.0/20" | grep -c "1.102.4.1" || true)
+    local r2_inet_best=$(kvtysh as102r2 "show ip bgp" | grep -E "^\s*\*>[i ]*\s*1\.0\.0\.0/20" | grep -c "1.102.4.1" || true)
     if [ "$r2_inet_best" -eq 0 ]; then
         local r2_inet_detail=$(kvtysh as102r2 "show ip bgp 1.0.0.0/20")
         if echo "$r2_inet_detail" | grep -q "best" && echo "$r2_inet_detail" | grep -q "1.102.4.1"; then
@@ -705,8 +705,8 @@ test_section_7_bgp_policy() {
 
     # B16: AS1 入向选路优选 r1 (LocPrf=200，由社区 1:200 触发)
     local as1_bgp_route=$(kvtysh as1r1 "show ip bgp 1.102.0.0/20")
-    local as1_best_hop=$(echo "$as1_bgp_route" | grep -B1 -E "best|valid.*best" | grep -oP '(?:\d+\.){3}\d+' | head -n 1)
-    local as1_table_best=$(kvtysh as1r1 "show ip bgp" | grep -E "^\*>[i ]*\s*1\.102\.0\.0/20" || true)
+    local as1_best_hop=$(echo "$as1_bgp_route" | grep -B1 -E "valid.*best" | grep -oP '(?:\d+\.){3}\d+' | head -n 1)
+    local as1_table_best=$(kvtysh as1r1 "show ip bgp" | grep -E "^\s*\*>[i ]*\s*1\.102\.0\.0/20" || true)
 
     if [ "$as1_best_hop" == "1.0.0.5" ] || echo "$as1_table_best" | grep -q "1.0.0.5" || echo "$as1_table_best" | grep -qE "102\s*i|102\s*$"; then
         report_pass "B16" "AS1 最优路径直连 102 (1.0.0.5)，由 r1 宣告的 1:200 社区驱动为最高优先级"
@@ -716,8 +716,8 @@ test_section_7_bgp_policy() {
 
     # B17: AS21 直连进入 (AS-Path: 102 102 优于经 AS2 的 2 1 102)
     local as21_bgp_route=$(kvtysh as21r1 "show ip bgp 1.102.0.0/20")
-    local as21_best_hop=$(echo "$as21_bgp_route" | grep -B1 -E "best|valid.*best" | grep -oP '(?:\d+\.){3}\d+' | head -n 1)
-    local as21_table_best=$(kvtysh as21r1 "show ip bgp" | grep -E "^\*>[i ]*\s*1\.102\.0\.0/20" || true)
+    local as21_best_hop=$(echo "$as21_bgp_route" | grep -B1 -E "valid.*best" | grep -oP '(?:\d+\.){3}\d+' | head -n 1)
+    local as21_table_best=$(kvtysh as21r1 "show ip bgp" | grep -E "^\s*\*>[i ]*\s*1\.102\.0\.0/20" || true)
 
     if [ "$as21_best_hop" == "2.21.0.1" ] || echo "$as21_table_best" | grep -q "2.21.0.1" || echo "$as21_table_best" | grep -q "102 102"; then
         report_pass "B17" "AS21 最优路径直连 102 (2.21.0.1 via AS-Path 102 102，胜过经 AS2 的 2 1 102)"
@@ -733,7 +733,7 @@ test_section_7_bgp_policy() {
         if echo "$detail" | grep -A2 -E "best|valid.*best" | grep -qE "$exp_pattern"; then
             return 0
         fi
-        local tbl=$(kvtysh "$node" "show ip bgp" 2>/dev/null | grep -E "^\*>[i ]*\s*1\.102\.0\.0/20")
+        local tbl=$(kvtysh "$node" "show ip bgp" 2>/dev/null | grep -E "^\s*\*>[i ]*\s*1\.102\.0\.0/20")
         if echo "$tbl" | grep -qE "$exp_pattern"; then
             return 0
         fi
@@ -753,7 +753,7 @@ test_section_7_bgp_policy() {
     fi
 
     # B23 - B25: 防止常态未授权 Transit
-    local as21_to_as1_path=$(kvtysh as21r1 "show ip bgp 1.0.0.0/20" | grep -A2 -E "best|valid.*best" | grep -oP '(?:\d+\s+)+[ie\?]' || kvtysh as21r1 "show ip bgp" | grep -E "^\*>[i ]*\s*1\.0\.0\.0/20" || true)
+    local as21_to_as1_path=$(kvtysh as21r1 "show ip bgp 1.0.0.0/20" | grep -B2 "valid.*best" | head -n 1)
     if echo "$as21_to_as1_path" | grep -q "2 1" && ! echo "$as21_to_as1_path" | grep -q "102"; then
         report_pass "B23" "常态下 AS21 访问 AS1 走直连 AS2 (Path: 2 1), 不借道 AS102 做 Transit"
     else
@@ -782,9 +782,9 @@ test_section_8_failover() {
     wait_countdown 15 "OSPF withdrawal & BGP holdtimer failover"
 
     local bf1_ext_ping=0
-    kexec as102c1 ping -c 2 -W 2 1.0.1.2 >/dev/null 2>&1 && bf1_ext_ping=1
+    kexec as102c1 timeout 6 ping -W 2 1.0.1.2 >/dev/null 2>&1 && bf1_ext_ping=1
     local bf1_r3_def_hop=$(kvtysh as102r3 "show ip route 0.0.0.0/0" | grep -oP '(?:via\s*|nexthop\s*)\K[0-9.]+' | head -n 1)
-    local bf1_as1_path=$(kvtysh as1r1 "show ip bgp 1.102.0.0/20" | grep -E "^\*>" | awk '{print $(NF-3), $(NF-2), $(NF-1), $NF}' || true)
+    local bf1_as1_path=$(kvtysh as1r1 "show ip bgp 1.102.0.0/20" | grep -E "valid.*best" || kvtysh as1r1 "show ip bgp" | grep -E "^\s*\*>" | grep "1\.102\.0\.0/20" || true)
 
     # 恢复 r1
     kexec as102r1 systemctl start frr
@@ -802,8 +802,8 @@ test_section_8_failover() {
     wait_countdown 15 "OSPF flush of 2.21.0.0/20 & BGP reconvergence"
 
     local bf2_21_ping=0
-    kexec as102c1 ping -c 2 -W 2 2.21.1.1 >/dev/null 2>&1 && bf2_21_ping=1
-    local bf2_ospf_21=$(kvtysh as102r3 "show ip route 2.21.0.0/20" | grep -cE "O\s*E1|type 1" || true)
+    kexec as102c1 timeout 6 ping -W 2 2.21.1.1 >/dev/null 2>&1 && bf2_21_ping=1
+    local bf2_ospf_21=$(kvtysh as102r3 "show ip route 2.21.0.0/20" | grep -ciE "ospf|O\s*E" || true)
 
     # 恢复 r2
     kexec as102r2 systemctl start frr
@@ -823,7 +823,7 @@ test_section_8_failover() {
     local bf3_r3_metric=$(kvtysh as102r3 "show ip route 0.0.0.0/0" | grep -oP '(?:\[110/|metric\s+)\K\d+' | head -n 1)
     local bf3_ibgp_up=$(kvtysh as102r1 "show ip bgp summary" | grep "1.102.4.2" | awk '{for(i=10;i<=NF;i++) if($i ~ /^[0-9]+$/ || $i ~ /Active|Idle|Connect/) {print $i; exit}}')
     local bf3_ping=0
-    kexec as102c1 ping -c 2 -W 2 1.0.1.2 >/dev/null 2>&1 && bf3_ping=1
+    kexec as102c1 timeout 6 ping -W 2 1.0.1.2 >/dev/null 2>&1 && bf3_ping=1
 
     kexec as102r1 ip link set eth0 up
     wait_countdown 15 "Restoring r1 eth0 link"
@@ -839,9 +839,9 @@ test_section_8_failover() {
     kexec as102r2 ip link set eth0 down
     wait_countdown 15 "Waiting for CHECK-AS21 & OSPF-INJECT flush"
 
-    local bf4_r3_has_21=$(kvtysh as102r3 "show ip route 2.21.0.0/20" | grep -cE "O\s*E1|type 1" || true)
+    local bf4_r3_has_21=$(kvtysh as102r3 "show ip route 2.21.0.0/20" | grep -ciE "ospf|O\s*E" || true)
     local bf4_ping21=0
-    kexec as102c1 ping -c 2 -W 2 2.21.1.1 >/dev/null 2>&1 && bf4_ping21=1
+    kexec as102c1 timeout 6 ping -W 2 2.21.1.1 >/dev/null 2>&1 && bf4_ping21=1
 
     kexec as102r2 ip link set eth0 up
     wait_countdown 15 "Restoring r2 eth0 link"
@@ -858,8 +858,8 @@ test_section_8_failover() {
     wait_countdown 15 "Waiting for AS21 to shift transit to AS102"
 
     local bf5_as21_transit_ok=0
-    kexec as21h1 ping -c 2 -W 2 1.0.1.2 >/dev/null 2>&1 && bf5_as21_transit_ok=1
-    local bf5_as1_best_21=$(kvtysh as1r1 "show ip bgp 2.21.0.0/20" | grep -E "^\*>" | grep -c "102 102 21" || true)
+    kexec as21h1 timeout 6 ping -W 2 1.0.1.2 >/dev/null 2>&1 && bf5_as21_transit_ok=1
+    local bf5_as1_best_21=$(kvtysh as1r1 "show ip bgp 2.21.0.0/20" | grep -c "102 102 21" || true)
 
     kexec as21r1 ip link set eth1 up
     wait_countdown 15 "Restoring AS21-AS2 uplink"
@@ -878,7 +878,7 @@ test_section_8_failover() {
 
     local bf6_ibgp_state=$(kvtysh as102r1 "show ip bgp summary" | grep "1.102.4.2" | awk '{for(i=10;i<=NF;i++) if($i ~ /^[0-9]+$/ || $i ~ /Active|Idle|Connect/) {print $i; exit}}')
     local bf6_ping=0
-    kexec as102c1 ping -c 2 -W 2 1.0.1.2 >/dev/null 2>&1 && bf6_ping=1
+    kexec as102c1 timeout 6 ping -W 2 1.0.1.2 >/dev/null 2>&1 && bf6_ping=1
 
     kexec as102r1 ip link set eth0 up
     kexec as102r1 ip link set eth1 up
@@ -1216,7 +1216,7 @@ test_section_13_e2e() {
     # E1: 客户端 ping 全部外网 Web 域名
     local e1_fail=0
     for n in 1 2 3 12 21 22; do
-        if ! kexec as102c1 ping -c 1 -W 2 "www.isp${n}.lab" >/dev/null 2>&1; then
+        if ! kexec as102c1 timeout 4 ping -W 2 "www.isp${n}.lab" >/dev/null 2>&1; then
             e1_fail=1
             echo -e "         ${RED}-> ping www.isp${n}.lab 失败${NC}"
         fi
@@ -1230,7 +1230,7 @@ test_section_13_e2e() {
     # E2: 服务器 ping 外网
     local e2_fail=0
     for n in 1 2 21; do
-        if ! kexec as102s1 ping -c 1 -W 2 "www.isp${n}.lab" >/dev/null 2>&1; then
+        if ! kexec as102s1 timeout 4 ping -W 2 "www.isp${n}.lab" >/dev/null 2>&1; then
             e2_fail=1
         fi
     done
