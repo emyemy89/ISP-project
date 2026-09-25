@@ -32,5 +32,6 @@ $TTL	604800
 3.1.102.1.in-addr.arpa.	IN	PTR	www.isp102.lab.
 4.1.102.1.in-addr.arpa.	IN	PTR	dhcpd.isp102.lab.
 
+$GENERATE 10 29 $.2.102.1.in-addr.arpa. IN PTR client$.isp102.lab.
 10.2.102.1.in-addr.arpa.	IN	PTR	c1.isp102.lab.
 11.2.102.1.in-addr.arpa.	IN	PTR	c2.isp102.lab.

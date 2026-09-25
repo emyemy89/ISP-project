@@ -33,6 +33,7 @@ r4-eth1          IN      A       1.102.3.4
 r4-eth2          IN      A       1.102.3.9
 r4-lo            IN      A       1.102.4.4
 
+$GENERATE 10 29 client$ IN A 1.102.2.$
 c1              IN      A       1.102.2.10
 c2              IN      A       1.102.2.11
 
