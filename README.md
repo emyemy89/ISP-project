@@ -1,5 +1,7 @@
 # ISP Network Implementation (AS102)
 
+![System Architecture](images/102.png)
+
 This project was developed as part of the course **IK2215 Advanced Internetworking** at **KTH Royal Institute of Technology**.
 
 ### Overview & How It Works
