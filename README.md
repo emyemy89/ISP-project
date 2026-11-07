@@ -12,7 +12,7 @@ This project was developed as part of the course **IK2215 Advanced Internetworki
 - **Network Services**: Hosted authoritative DNS (BIND 9), an HTTP Web server (Apache2), and dynamic host configuration via an ISC DHCP server and relay.
 
 ### Tools & Technologies
-- **Emulation**: [Kathará](https://www.kathara.net/) (container-based network emulation)
+- **Emulation**: Kathará (container-based network emulation)
 - **Routing Engine**: FRRouting (FRR)
 - **Services**: BIND 9, Apache HTTP Server, ISC DHCP Suite
 
